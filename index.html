@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta charset="UTF-8" />
+    <title>Weather temperature</title>
+    <style> 
+       input[type='radio']:after {
+        width: 15px;
+        height: 15px;
+        border-radius: 15px;
+        top: -2px;
+        left: -1px;
+        position: relative;
+        background-color: #d1d3d1;
+        content: '';
+        display: inline-block;
+        visibility: visible;
+        border: 2px solid white;
+      }
+
+      input[type='radio']:checked:after {
+        width: 15px;
+        height: 15px;
+        border-radius: 15px;
+        top: -2px;
+        left: -1px;
+        position: relative;
+        background-color: black;
+        content: '';
+        display: inline-block;
+        visibility: visible;
+        border: 2px solid white;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        font-size: 16px;
+        color: #333;
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+
+      button {
+        margin: 10px 5px;
+        cursor: pointer;
+        padding: 10px;
+        background-color: black;
+        color: white;
+        border: none;
+        border-radius: 5px;
+      }
+
+      #chart-container {
+        max-width: 800px;
+        margin: 30px auto;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+      }
+
+      .section-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: black;
+      }
+
+      .current-weather {
+        padding: 30px 0;
+        text-align: center;
+      }
+
+      .temperature-box {
+        display: inline-block;
+        padding: 20px;
+        border-radius: 10px;
+        font-size: 2rem;
+        font-weight: 600;
+        box-shadow: 0 0 15px rgba(12, 6, 6, 0.366);
+      }
+
+      .time-stats {
+        display: flex;
+        flex-direction: column;
+        row-gap: 10px;
+      }
+
+      .statistics {
+        padding: 30px 0;
+      }
+
+      #load-stats-btn {
+        box-sizing: border-box;
+        width: 160px;
+        padding: 10px;
+        background-color: black;
+        color: white;
+        border: none;
+        border-radius: 5px;
+      }
+
+      .chart-container {
+        max-width: 1000px;
+        margin: 0 auto 20px;
+      }
+
+      .statistics-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        box-shadow: 0 4px 10px rgba(106, 71, 69, 0.1);
+      }
+
+      .statistics-table th,
+      .statistics-table td {
+        padding: 10px;
+        text-align: center;
+        border: 1px solid #ddd;
+      }
+
+      .statistics-table th {
+        background: black;
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="current-weather">
+        <div class="container">
+          <h2 class="section-title">Температура сейчас</h2>
+          <div id="current-temperature" class="temperature-box">
+            <p>Загрузка...</p>
+          </div>
+        </div>
+      </section>
+      <section id="chart-container">
+        <canvas id="myChart"></canvas>
+      </section>
+      <section class="statistics">
+        <div class="container">
+          <h2 class="section-title">Статистика за период</h2>
+          <div class="time-stats">
+            <div>
+              <label for="start-date">Начальная дата:</label>
+              <input type="date" id="start-date" />
+              <input type="time" id="start-time" value="00:00:00" />
+            </div>
+
+            <div>
+              <label for="end-date">Конечная дата:</label>
+              <input type="date" id="end-date" />
+              <input type="time" id="end-time" value="23:59:59" />
+            </div>
+
+            <button id="load-stats-btn">Загрузить статистику</button>
+          </div>
+          <div>
+            <input type="radio" name="logType" value="all" checked />
+            <label> Всё</label>
+
+            <input type="radio" name="logType" value="daily" /> 
+            <label>Средняя за день</label>
+
+            <input type="radio" name="logType" value="hourly" /> 
+            <label>Средняя за час</label>
+          </div>
+          <table class="statistics-table">
+            <thead>
+              <tr>
+                <th>Дата</th>
+                <th>Температура</th>
+              </tr>
+            </thead>
+            <tbody id="statistics-table">
+            </tbody>
+          </table>
+          <button id="prev-page-btn">Назад</button>
+          <button id="next-page-btn">Дальше</button>
+        </div>
+      </section>
+    </main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, "0");
+        const day = String(today.getDate()).padStart(2, "0");
+        const formattedDate = `${year}-${month}-${day}`;
+
+        const startDateInput = document.getElementById("start-date");
+        const endDateInput = document.getElementById("end-date");
+        startDateInput.value = formattedDate;
+        endDateInput.value = formattedDate;
+
+        const currentTemperatureEl = document.getElementById(
+          "current-temperature"
+        );
+        const statisticsTable = document.getElementById("statistics-table");
+        const startTimeInput = document.getElementById("start-time");
+        const endTimeInput = document.getElementById("end-time");
+        const loadStatsBtn = document.getElementById("load-stats-btn");
+        const prevPageBtn = document.getElementById("prev-page-btn");
+        const nextPageBtn = document.getElementById("next-page-btn");
+        const currentWeatherSection =
+          document.querySelector(".current-weather");
+        const statisticsTableHeaders = document.querySelectorAll(
+          ".statistics-table th"
+        );
+        let lastStatsData = [];
+        let currentOffset = 1;
+        const limit = 10;
+
+        const baseUrl = window.location.origin;
+
+        let selectedLogType = "all";
+
+        const radioButtons = document.querySelectorAll('input[name="logType"]');
+        radioButtons.forEach((radio) => {
+          radio.addEventListener("change", (e) => {
+            selectedLogType = e.target.value;
+            loadStatistics();
+          });
+        });
+        const ctx = document.getElementById("myChart").getContext("2d");
+        const chart = new Chart(ctx, {
+                    type: "line",
+                    data: {
+                      labels: [],
+                      datasets: [
+                        {
+                          label: "Температура",
+                          data: [],
+                          backgroundColor: "rgba(0, 0, 0, 0.6)",
+                          borderColor: "rgba(0, 0, 0, 0.4)",
+                          borderWidth: 1,
+                          pointRadius: 4,
+                          pointHoverRadius: 7,
+                          fill: true,
+                        },
+                      ],
+                    },
+                    options: {
+                      scales: {
+                        x: [{
+                          ticks: {
+                            display: false,
+                          }
+                        }],
+                        y: [
+                          {
+                            ticks: {
+                              beginAtZero: false,
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  });
+
+        async function updateCurrentTemperature() {
+          try {
+            const response = await fetch(`${baseUrl}/current-temperature`);
+            const data = await response.json();
+            const temperature = parseFloat(data[0].temperature);
+            updateChart(chart, data[0].timestamp ,temperature);
+            currentTemperatureEl.innerHTML = `${temperature.toFixed(1)} °C`;
+          } catch (error) {
+            console.error("Error while fetching current temperature:", error);
+            currentTemperatureEl.innerHTML = "Error loading";
+          }
+        }
+
+        function updateChart(chart, label, data) {
+          if (chart.data.datasets[0].data.length > 30) {
+            chart.data.labels.shift();
+            chart.data.datasets[0].data.shift();
+          }
+          chart.data.labels.push(" ");
+          chart.data.datasets[0].data.push(data);
+          chart.update();
+        }
+
+        async function loadStatistics() {
+          const startDate = startDateInput.value;
+          const startTime = startTimeInput.value || "00:00:00";
+          const endDate = endDateInput.value;
+          const endTime = endTimeInput.value || "23:59:59";
+          const startDateTime = `${startDate}+${startTime}`;
+          const endDateTime = `${endDate}+${endTime}`;
+          try {
+            const response = await fetch(
+              `${baseUrl}/stats?logType=${selectedLogType}&startDate=${startDateTime}&endDate=${endDateTime}&offset=${currentOffset}&limit=${limit}`
+            );
+            const data = await response.json();
+            if (JSON.stringify(data) !== JSON.stringify(lastStatsData)) {
+              lastStatsData = data;
+              statisticsTable.innerHTML = "";
+              data.forEach((entry) => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                  <td>${new Date(entry.timestamp).toLocaleString("ru-RU")}</td>
+                  <td>${parseFloat(entry.temperature).toFixed(1)} °C</td>
+                `;
+                statisticsTable.appendChild(row);
+              });
+            }
+            updatePaginationButtons();
+          } catch (error) {
+            console.error("Error while loading statistics:", error);
+          }
+        }
+
+        function updatePaginationButtons() {
+          prevPageBtn.disabled = currentOffset <= 1;
+          nextPageBtn.disabled = lastStatsData.length < limit;
+        }
+
+        prevPageBtn.addEventListener("click", () => {
+          if (currentOffset > 1) {
+            currentOffset--;
+            loadStatistics();
+          }
+        });
+
+        nextPageBtn.addEventListener("click", () => {
+          currentOffset++;
+          loadStatistics();
+        });
+
+        updateCurrentTemperature();
+        loadStatistics();
+        loadStatsBtn.addEventListener("click", loadStatistics);
+        setInterval(updateCurrentTemperature, 1000);
+        setInterval(loadStatistics, 1000);
+      });
+    </script>
+  </body>
+</html>
